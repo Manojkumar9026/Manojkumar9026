@@ -1,0 +1,153 @@
+food-classification/
+│
+├── data/
+│   └── food_images/  # Contains subdirectories for each food category with images
+│
+├── models/
+│   └── food_model.h5
+│
+├── notebooks/
+│   └── Food_Classification.ipynb
+│
+├── app.py
+│
+├── train.py
+│
+├── preprocess.py
+│
+├── evaluate.py
+│
+└── requirements.txt
+from flask import Flask, request, jsonify
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import img_to_array, load_img
+import numpy as np
+import os
+
+# Load the trained model
+model = load_model('models/food_model.h5')
+
+app = Flask(__name__)
+
+def preprocess_image(image_path, target_size):
+    image = load_img(image_path, target_size=target_size)
+    image = img_to_array(image)
+    image = np.expand_dims(image, axis=0)
+    image = image / 255.0
+    return image
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    image_file = request.files['image']
+    if image_file:
+        image_path = os.path.join('uploads', image_file.filename)
+        image_file.save(image_path)
+        processed_image = preprocess_image(image_path, target_size=(224, 224))
+        prediction = model.predict(processed_image)
+        predicted_class = np.argmax(prediction, axis=1)[0]
+        # Assuming you have a list of class names
+        class_names = ['class1', 'class2', 'class3']  # replace with your actual class names
+        predicted_class_name = class_names[predicted_class]
+        return jsonify({'predicted_class': predicted_class_name})
+
+if __name__ == '__main__':
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+def create_data_generators(train_dir, test_dir, img_size=(224, 224), batch_size=32):
+    train_datagen = ImageDataGenerator(
+        rescale=1.0/255,
+        rotation_range=40,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True,
+        fill_mode='nearest'
+    )
+
+    test_datagen = ImageDataGenerator(rescale=1.0/255)
+
+    train_generator = train_datagen.flow_from_directory(
+        train_dir,
+        target_size=img_size,
+        batch_size=batch_size,
+        class_mode='categorical'
+    )
+
+    test_generator = test_datagen.flow_from_directory(
+        test_dir,
+        target_size=img_size,
+        batch_size=batch_size,
+        class_mode='categorical'
+    )
+
+    return train_generator, test
+import tensorflow as tf
+from tensorflow.keras.applications import VGG16
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten, Dropout
+from tensorflow.keras.optimizers import Adam
+from preprocess import create_data_generators
+
+# Directories
+train_dir = 'data/food_images/train'
+test_dir = 'data/food_images/test'
+
+# Create data generators
+train_generator, test_generator = create_data_generators(train_dir, test_dir)
+
+# Load VGG16 model + higher level layers
+base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+
+# Freeze convolutional layers
+for layer in base_model.layers:
+    layer.trainable = False
+
+model = Sequential([
+    base_model,
+    Flatten(),
+    Dense(256, activation='relu'),
+    Dropout(0.5),
+    Dense(len(train_generator.class_indices), activation='softmax')
+])
+
+# Compile the model
+model.compile(optimizer=Adam(lr=0.0001), loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Train the model
+history = model.fit(
+    train_generator,
+    steps_per_epoch=train_generator.samples // train_generator.batch_size,
+    validation_data=test_generator,
+    validation_steps=test_generator.samples // test_generator.batch_size,
+    epochs=10
+  import tensorflow as tf
+from tensorflow.keras.models import load_model
+from preprocess import create_data_generators
+
+# Directories
+train_dir = 'data/food_images/train'
+test_dir = 'data/food_images/test'
+
+# Create data generators
+_, test_generator = create_data_generators(train_dir, test_dir)
+
+# Load the trained model
+model = load_model('models/food_model.h5')
+
+# Evaluate the model
+loss, accuracy = model.evaluate(test_generator, steps=test_generator.samples // test_generator.batch_size)
+print(f'Test accuracy: {accuracy * 100:.2f}%')
+  Flask==2.0.1
+tensorflow==2.4.1
+numpy==1.19.5
+pillow==8.2.0
+  git init
+  git add 
+  git commit -m "Initial commit"
+  git remote add origin https://github.com/yourusername/food-classification.git
+git branch -M main
+git push -u origin main
+  
